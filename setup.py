@@ -2,13 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='MOTorNOT',
-    version='0.1',
-    description='Magneto-optical trap simulation package',
+    version='1.0.0',
+    description='Semiclassical MOT/dipole-trap simulation library with a CPU/GPU (CuPy) backend',
     author='Robert Fasano',
     author_email='robert.j.fasano@colorado.edu',
     packages=find_packages(),
     license='MIT',
     long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     install_requires=[
         'numpy',
         'scipy',

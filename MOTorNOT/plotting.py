@@ -69,7 +69,7 @@ def plot_2D(func, plane='xy', limits=[(-20e-3, 20e-3), (-20e-3, 20e-3)], numpoin
                       z=agrid,
                       colorscale="Rainbow",
                       zsmooth='best',
-                      colorbar={'title': 'Acceleration', 'titleside': 'right'})
+                      colorbar={'title': {'text': 'Acceleration', 'side': 'right'}})
     if quiver:
         n = numpoints
         X2, agrid2, a2 = X, agrid, a
@@ -107,6 +107,6 @@ def plot_phase_space_force(func, axis='x', limits=[(-20e-3, 20e-3), (-20e-3, 20e
                       y=v,
                       z=agrid,
                       colorscale="Rainbow",
-                      colorbar={'title': 'Acceleration', 'titleside': 'right'})
+                      colorbar={'title': {'text': 'Acceleration', 'side': 'right'}})
 
     return surf

@@ -1,4 +1,4 @@
-import ruamel_yaml as yaml
+import yaml
 import os
 
 def load_parameters():

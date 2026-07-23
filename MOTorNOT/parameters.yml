@@ -1,24 +1,35 @@
-# # atom:
-# #   mass: 171          # mass in amu
-# #   gamma: 182e3        # linewidth divided by 2pi in Hz
-# #   wavelength: 556    # wavelength of transition in nm
-# #   gF: 1              # g-factor of transition
-# #   Isat: 0.14        # saturation intensity in mW/cm^2
-# atom:
-#   mass: 171          # mass in amu
-#   gamma: 29e6        # linewidth divided by 2pi in Hz
-#   wavelength: 399    # wavelength of transition in nm
-#   gF: 1              # g-factor of transition
-#   Isat: 60        # saturation intensity in mW/cm^2
-# # atom:
-# #   mass: 88          # mass in amu
-# #   gamma: 7.5e3        # linewidth divided by 2pi in Hz
-# #   wavelength: 689    # wavelength of transition in nm
-# #   gF: 1.5              # g-factor of transition
-# #   Isat: 0.003        # saturation intensity in mW/cm^2
-# # atom:
-# #   mass: 85          # mass in amu
-# #   gamma: 6e6        # linewidth divided by 2pi in Hz
-# #   wavelength: 780    # wavelength of transition in nm
-# #   gF: 1              # g-factor of transition
-# #   Isat: 1        # saturation intensity in mW/cm^2
+# Default atom: rubidium-87, D2 line (5S1/2 F=2 -> 5P3/2 F'=3)
+# NOTE: scientific notation must be written like 6.0666e+6 (with decimal point
+# and a signed exponent), otherwise PyYAML parses it as a string, not a float.
+atom:
+  mass: 87            # mass in amu
+  gamma: 6.0666e+6    # natural linewidth divided by 2pi, in Hz
+  wavelength: 780.241 # wavelength of transition in nm
+  gF: 0.5             # g-factor of the F=2 ground state
+  Isat: 1.67          # saturation intensity in mW/cm^2 (D2 cycling transition)
+
+# --- Other atoms (uncomment / copy into `atom:` above to use) ---
+# ytterbium-171, 556 nm intercombination line:
+#   mass: 171
+#   gamma: 1.82e+5
+#   wavelength: 556
+#   gF: 1
+#   Isat: 0.14
+# ytterbium-171, 399 nm line:
+#   mass: 171
+#   gamma: 2.9e+7
+#   wavelength: 399
+#   gF: 1
+#   Isat: 60
+# strontium-88, 689 nm intercombination line:
+#   mass: 88
+#   gamma: 7.5e+3
+#   wavelength: 689
+#   gF: 1.5
+#   Isat: 0.003
+# rubidium-85, 780 nm D2 line:
+#   mass: 85
+#   gamma: 6.0e+6
+#   wavelength: 780
+#   gF: 1
+#   Isat: 1

@@ -149,6 +149,58 @@ Runs on the CPU regardless (no GPU code path is required): the adaptive
 `solve_ivp` integrator, the elliptic-integral `Coil`/`QuadrupoleCoils` fields,
 and root finding. Use `LinearQuadrupole` for a fully GPU-resident MOT.
 
+## The physics
+
+**MOT scattering force.** Each laser beam *b* pushes an atom with a
+radiation-pressure force `ħ k_b R_b`, where `R_b` is its photon scattering rate.
+For the circularly polarised beams of a MOT the rate sums over the three
+`σ` sublevel transitions `m = -1, 0, +1`:
+
+```
+                Γ    I_b/I_sat            A_m(k̂,B̂,s)
+R_b(x,v) =  ───  · ───────── · Σ  ───────────────────────────────────────────
+                2      1        m   1 + s_tot + (2/Γ)²·(δ_b − k_b·v − m·gF·μ_B·|B(x)|/ħ)²
+```
+
+with `Γ = 2π·γ` the natural linewidth, `I_b/I_sat` the beam saturation and
+`s_tot` the total saturation from all beams, `δ_b` the detuning, `k_b·v` the
+Doppler shift, and `m·gF·μ_B·|B|/ħ` the Zeeman shift of sublevel `m`. The
+polarisation amplitudes `A_m` depend on the angle between the beam direction and
+the local magnetic field and on the handedness (the `eta` term). The total force
+is `F = Σ_b ħ k_b R_b`, giving both the velocity damping (Doppler cooling) and,
+through the position-dependent Zeeman shift, the spatial restoring force.
+
+**Magnetic field.** A quadrupole field from an anti-Helmholtz coil pair,
+evaluated exactly with elliptic integrals (`Coil`, `QuadrupoleCoils`), or its
+linear approximation `B = B₀·(x, y, −2z)` (`LinearQuadrupole`, GPU-friendly).
+
+**Optical dipole trap.** The far-detuned AC-Stark potential
+(Grimm, Weidemüller & Ovchinnikov 2000):
+
+```
+U(r) = −(3πc² / 2ω₀³) · Γ · ( 1/(ω₀−ω) + 1/(ω₀+ω) ) · I(r)
+```
+
+For a red-detuned laser (`ω < ω₀`) this is negative — an attractive well at high
+intensity. `DipoleTrap` uses a Gaussian beam `I(r,z)`; `OpticalLattice`
+multiplies by `4·cos²(kz)` for a retro-reflected standing wave with wells every
+`λ/2`. Trap depth and radial/axial trap frequencies follow from the curvature.
+
+**Internal-state (level) dynamics.** `LevelDynamics` integrates a 3-level rate
+model — `F=2 ↔ excited` driven at the stimulated rate `W = (Γ/2)·s/(1+(2δ/Γ)²)`,
+spontaneous decay `Γ` with a small branch to a dark `F=1` state, and a repumper
+`F=1 → F=2`. In the two-level limit its steady-state scattering rate reduces to
+the textbook `(Γ/2)·s/(1 + s + (2δ/Γ)²)`.
+
+**Recapture.** An atom released into a dipole trap is captured if its total
+mechanical energy `E = ½mv² + U(x) < 0` (bound below the `U→0` escape
+threshold). Since `U` is conservative this is exact; trajectories are integrated
+ballistically in the potential.
+
+**Integration.** Either scipy's adaptive `solve_ivp` (CPU) or the backend-aware
+fixed-step RK4 `integrate`, which handles velocity-dependent forces `a(x,v)` and
+stays entirely on the GPU for large ensembles.
+
 ## Physics notes & limitations
 
 - Forces are **semiclassical** (mean scattering rate); there is no photon-recoil

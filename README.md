@@ -1,5 +1,9 @@
 # MOTorNOT
 
+> **📦 Latest build:** [**v1.0.0** on the Releases page](https://github.com/alexlegoshin/MOTorNOT/releases/latest) —
+> the wheel (`.whl`) is attached, so you can `pip install` it directly without
+> cloning this repo. See [Installation](#installation) below.
+
 A compact simulation library for **laser cooling and trapping of neutral atoms**.
 It models the semiclassical scattering force in a magneto-optical trap (MOT),
 optical **dipole traps** and lattices, hyperfine **level dynamics with a
@@ -44,7 +48,13 @@ print("T = %.1f µK, recaptured %.0f%%"
 ## Installation
 
 ```bash
-# CPU (NumPy) — always works
+# From the latest release wheel — no clone needed:
+pip install https://github.com/alexlegoshin/MOTorNOT/releases/latest/download/motornot-1.0.0-py3-none-any.whl
+
+# ...or straight from GitHub:
+pip install git+https://github.com/alexlegoshin/MOTorNOT
+
+# ...or from a local clone, editable:
 pip install -e .
 
 # Optional GPU acceleration (NVIDIA CUDA 12.x). The [ctk] extra pulls in the

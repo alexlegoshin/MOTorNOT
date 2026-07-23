@@ -23,3 +23,7 @@ def rotate(axis, theta):
 from .coils import LinearQuadrupole, QuadrupoleCoils
 from .mot import SixBeam, GratingMOT
 from .beams import UniformBeam, GaussianBeam
+from .dipole import DipoleTrap, OpticalLattice
+from .levels import LevelDynamics
+from . import diagnostics
+from . import recapture

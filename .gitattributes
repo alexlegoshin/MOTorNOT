@@ -1,0 +1,4 @@
+# Keep GitHub's language stats meaningful: the tutorial notebooks are mostly
+# embedded output/plot images by byte count, which would otherwise make the
+# repo register as "Jupyter Notebook" instead of Python.
+*.ipynb linguist-documentation

@@ -1,3 +1,4 @@
+import contextlib
 import numpy as np
 import attr
 from scipy.constants import hbar, physical_constants
@@ -8,6 +9,7 @@ mu_B = physical_constants['Bohr magneton'][0]
 amu = physical_constants['atomic mass constant'][0]
 from MOTorNOT.beams import *
 from MOTorNOT.integration import solve
+from MOTorNOT.backend import get_array_module
 import matplotlib.pyplot as plt
 
 @attr.s
@@ -30,24 +32,25 @@ class MOT:
 
     def beam_scattering_rate(self, beam, X, V):
         ''' The scattering rate of the beam at a given position and velocity.
+            Array-agnostic: runs on the GPU when X, V are CuPy arrays.
             Args:
                 X (ndarray): position array with shape (N, 3)
                 V (ndarray): velocity array with shape (N, 3)
-                b (ndarray): magnetic field evaluated at the position
-                betaT (ndarray): total saturation fraction evaluated at X
         '''
+        xp = get_array_module(X, V)
         linewidth = 2*np.pi*self.atom['gamma']
         wavenumber = 2*np.pi/(self.atom['wavelength']*1e-9)
-        wavevector = beam.direction * wavenumber
+        wavevector = xp.asarray(beam.direction) * wavenumber
         Isat = self.atom['Isat'] * 10
         prefactor = linewidth/2 * beam.intensity(X)/Isat
         summand = 0
         b = self.field(X)
         eta = self.eta(b, beam.direction, beam.handedness)
         betaT = self.total_intensity(X)/Isat
+        bnorm = xp.linalg.norm(b, axis=1)
         for mF in [-1, 0, 1]:
             amplitude = eta.T[mF+1]
-            denominator = (1+betaT+4/linewidth**2*(beam.detuning-np.dot(wavevector, V.T)-mF*self.atom['gF']*mu_B*np.linalg.norm(b,axis=1)/hbar)**2)
+            denominator = (1+betaT+4/linewidth**2*(beam.detuning-xp.dot(wavevector, V.T)-mF*self.atom['gF']*mu_B*bnorm/hbar)**2)
             summand += amplitude / denominator
         rate = (prefactor.T*summand).T
         return rate
@@ -63,17 +66,14 @@ class MOT:
         return rate
 
     def force(self, X, V):
-        X = np.atleast_2d(X)
-        V = np.atleast_2d(V)
-        force = np.atleast_2d(np.zeros(X.shape))
-        Isat = self.atom['Isat'] * 10
-        betaT = self.total_intensity(X)/Isat
-        b = self.field(X)
+        xp = get_array_module(X, V)
+        X = xp.atleast_2d(X)
+        V = xp.atleast_2d(V)
+        force = xp.zeros(X.shape)
         wavenumber = 2*np.pi/(self.atom['wavelength']*1e-9)
         for beam in self.beams:
-            # force += hbar* np.outer(beam.scattering_rate(X,V, b, betaT), wavenumber * beam.direction)
-            force += hbar* np.outer(self.beam_scattering_rate(beam, X, V), wavenumber * beam.direction)
-
+            force += hbar * xp.outer(self.beam_scattering_rate(beam, X, V),
+                                     wavenumber * xp.asarray(beam.direction))
         return force
 
     def plot(self, plane='xy', limits=[(-10e-3, 10e-3), (-10e-3, 10e-3)], numpoints=50, quiver_scale=30, component='all'):
@@ -106,14 +106,19 @@ class MOT:
                 khat (ndarray): beam unit vector
                 s (float): polarization handedness
         '''
+        xp = get_array_module(b)
         bT = b.T
-        bnorm = np.linalg.norm(bT, axis=0)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            Bhat = np.divide(bT, bnorm)
-            Bhat[:, bnorm==0] = 0
+        bnorm = xp.linalg.norm(bT, axis=0)
+        # np.errstate silences divide-by-zero on the CPU; CuPy has no errstate
+        # (it simply produces inf/nan without a Python warning), so use a no-op.
+        err_ctx = np.errstate(divide='ignore', invalid='ignore') if xp is np \
+            else contextlib.nullcontext()
+        with err_ctx:
+            Bhat = xp.divide(bT, bnorm)
+            Bhat[:, bnorm == 0] = 0
 
-        xi = khat.dot(Bhat)
-        return np.array([(1+s*xi)**2/4, (1-xi**2)/2, (1-s*xi)**2/4]).T
+        xi = xp.asarray(khat).dot(Bhat)
+        return xp.stack([(1+s*xi)**2/4, (1-xi**2)/2, (1-s*xi)**2/4]).T
 
     def trap_center(self):
         ''' Numerically locate the potential minimum '''

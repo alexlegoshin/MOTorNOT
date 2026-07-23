@@ -1,6 +1,7 @@
 import numpy as np
 import attr
 from MOTorNOT import rotate
+from MOTorNOT.backend import get_array_module
 from scipy.special import ellipeinc, ellipk
 from scipy.constants import mu_0
 
@@ -44,9 +45,13 @@ class LinearQuadrupole(Coils):
     offset = attr.ib(converter=float, default=0)
 
     def field(self, X, V=None):
-        delta_z = np.zeros(X.shape)
+        ''' Linear quadrupole field B = B0 * (x, y, -2 z). Array-agnostic:
+            runs on the GPU when X is a CuPy array (unlike the elliptic-integral
+            Coil field, which is CPU-only). '''
+        xp = get_array_module(X)
+        delta_z = xp.zeros(X.shape)
         delta_z[:, 2] = -self.offset
-        return np.multiply(X+delta_z, np.array([1, 1, -2])) * self.B0
+        return xp.multiply(X + delta_z, xp.asarray([1.0, 1.0, -2.0])) * self.B0
 
 class QuadrupoleCoils(Coils):
     def __init__(self, radius, offset, turns, current, axis, deltaI=0):

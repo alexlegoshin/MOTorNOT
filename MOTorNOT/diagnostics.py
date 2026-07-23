@@ -6,6 +6,7 @@
 '''
 import numpy as np
 from scipy.constants import k as kB, physical_constants
+from MOTorNOT.backend import get_array_module, asnumpy
 amu = physical_constants['atomic mass constant'][0]
 
 
@@ -19,34 +20,36 @@ def temperature(V, mass):
 
         Args:
             V (ndarray): velocities, shape (N,) for 1D or (N, d) for d axes.
+                Runs on the GPU if V is a CuPy array.
             mass (float): atomic mass in kg.
         Returns:
             float: T = m <v^2> / (d * kB), averaging over atoms and the d axes.
     '''
-    V = np.asarray(V, dtype=float)
+    xp = get_array_module(V)
+    V = xp.asarray(V, dtype=float)
     if V.ndim == 1:
-        v2 = V**2
-    else:
-        v2 = np.sum(V**2, axis=1)
-        return mass * np.mean(v2) / (V.shape[1] * kB)
-    return mass * np.mean(v2) / kB
+        return float(mass * xp.mean(V**2) / kB)
+    v2 = xp.sum(V**2, axis=1)
+    return float(mass * xp.mean(v2) / (V.shape[1] * kB))
 
 
 def temperature_per_axis(V, mass):
-    ''' Per-axis temperatures T_i = m <v_i^2> / kB. Returns array of length d. '''
-    V = np.atleast_2d(np.asarray(V, dtype=float))
-    return mass * np.mean(V**2, axis=0) / kB
+    ''' Per-axis temperatures T_i = m <v_i^2> / kB. Returns a NumPy array. '''
+    xp = get_array_module(V)
+    V = xp.atleast_2d(xp.asarray(V, dtype=float))
+    return asnumpy(mass * xp.mean(V**2, axis=0) / kB)
 
 
 def rms_radius(X, center=None):
     ''' RMS cloud radius (scalar) and per-axis RMS size. '''
-    X = np.atleast_2d(np.asarray(X, dtype=float))
+    xp = get_array_module(X)
+    X = xp.atleast_2d(xp.asarray(X, dtype=float))
     if center is None:
         center = X.mean(axis=0)
     d = X - center
-    per_axis = np.sqrt(np.mean(d**2, axis=0))
-    radial = np.sqrt(np.mean(np.sum(d**2, axis=1)))
-    return radial, per_axis
+    per_axis = xp.sqrt(xp.mean(d**2, axis=0))
+    radial = xp.sqrt(xp.mean(xp.sum(d**2, axis=1)))
+    return float(radial), asnumpy(per_axis)
 
 
 def maxwell_boltzmann_speed_pdf(v, T, mass):
@@ -62,9 +65,9 @@ def plot_velocity_distribution(V, mass, path=None, bins=50, overlay_mb=True):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    V = np.atleast_2d(np.asarray(V, dtype=float))
-    speed = np.linalg.norm(V, axis=1)
     T = temperature(V, mass)
+    V = np.atleast_2d(asnumpy(V).astype(float))
+    speed = np.linalg.norm(V, axis=1)
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.hist(speed, bins=bins, density=True, alpha=0.7, color='steelblue',
             label='simulation')
@@ -88,7 +91,7 @@ def plot_position_distribution(X, path=None, bins=50):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    X = np.atleast_2d(np.asarray(X, dtype=float))
+    X = np.atleast_2d(asnumpy(X).astype(float))
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
     for i, (ax, lab) in enumerate(zip(axes, 'xyz')):
         ax.hist(X[:, i] * 1e3, bins=bins, density=True, alpha=0.7, color='seagreen')
@@ -121,7 +124,7 @@ def plot_temperature_evolution(times, temperatures, path=None):
 
 def temperature_series(V_over_time, mass):
     ''' Temperature at each timestep for a trajectory array of shape
-        (n_steps, n_atoms, 3) as produced by MOTorNOT.integration.Solver.V. '''
-    V_over_time = np.asarray(V_over_time, dtype=float)
+        (n_steps, n_atoms, 3) as produced by MOTorNOT.integration.Solver.V.
+        Works for NumPy or CuPy trajectory arrays. '''
     return np.array([temperature(V_over_time[i], mass)
-                     for i in range(V_over_time.shape[0])])
+                     for i in range(len(V_over_time))])

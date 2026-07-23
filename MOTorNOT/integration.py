@@ -6,6 +6,7 @@ from scipy.constants import physical_constants
 
 amu = physical_constants['atomic mass constant'][0]
 from MOTorNOT import rotate
+from MOTorNOT.backend import get_array_module, asnumpy
 
 def generate_initial_conditions(x0, v0, theta=0, phi=0):
     ''' Generates atomic positions and velocities along the z
@@ -121,6 +122,58 @@ class Solver:
         dz = self.get_position(-1)[:, 2] - z_trap
         is_trapped = np.logical_and(vf < vmax, dz <= rmax)
         return np.where(is_trapped)[0]
+
+
+def integrate(acceleration, X0, V0, duration, dt, record=True, sample=1):
+    ''' Fixed-step, backend-aware RK4 integrator for large ensembles.
+
+        Unlike `solve` (which wraps scipy.solve_ivp and always runs on the CPU),
+        this keeps every array on whichever backend X0/V0 live on: pass CuPy
+        arrays and the whole trajectory integrates on the GPU with no per-step
+        host transfers. It handles velocity-dependent accelerations a(X, V)
+        (as in a MOT) as well as conservative ones (dipole trap).
+
+        Args:
+            acceleration (callable): a(X, V) -> (N,3) array, array-agnostic.
+            X0, V0 (ndarray): initial positions/velocities (N,3), NumPy or CuPy.
+            duration (float): total integration time (s).
+            dt (float): fixed timestep (s).
+            record (bool): if True, keep the trajectory; if False keep only the
+                final state (memory-safe for millions of atoms).
+            sample (int): store every `sample`-th step when recording.
+        Returns:
+            (t, X, V): t is a NumPy array of times. If record, X and V have
+            shape (n_frames, N, 3) on the active backend; otherwise shape
+            (N, 3) final states.
+    '''
+    xp = get_array_module(X0, V0)
+    X = xp.atleast_2d(xp.asarray(X0, dtype=float)).copy()
+    V = xp.atleast_2d(xp.asarray(V0, dtype=float)).copy()
+    n_steps = int(round(duration / dt))
+
+    if record:
+        frames = list(range(0, n_steps + 1, sample))
+        if frames[-1] != n_steps:
+            frames.append(n_steps)
+        Xs = xp.empty((len(frames),) + X.shape)
+        Vs = xp.empty((len(frames),) + V.shape)
+        Xs[0], Vs[0] = X, V
+        frame_of = {s: k for k, s in enumerate(frames)}
+
+    for i in range(1, n_steps + 1):
+        k1x, k1v = V, acceleration(X, V)
+        k2x, k2v = V + 0.5 * dt * k1v, acceleration(X + 0.5 * dt * k1x, V + 0.5 * dt * k1v)
+        k3x, k3v = V + 0.5 * dt * k2v, acceleration(X + 0.5 * dt * k2x, V + 0.5 * dt * k2v)
+        k4x, k4v = V + dt * k3v, acceleration(X + dt * k3x, V + dt * k3v)
+        X = X + dt / 6 * (k1x + 2 * k2x + 2 * k3x + k4x)
+        V = V + dt / 6 * (k1v + 2 * k2v + 2 * k3v + k4v)
+        if record and i in frame_of:
+            Xs[frame_of[i]], Vs[frame_of[i]] = X, V
+
+    if record:
+        t = np.array(frames) * dt
+        return t, Xs, Vs
+    return np.array([n_steps * dt]), X, V
 
 
 def solve(acceleration, X0, V0, duration, dt=None, events=None):

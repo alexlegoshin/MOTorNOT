@@ -1,5 +1,6 @@
 import numpy as np
 import attr
+from MOTorNOT.backend import get_array_module
 
 @attr.s
 class Beam:
@@ -28,16 +29,19 @@ class UniformBeam(Beam):
     '''
     def exists_at(self, X):
         ''' A boolean check for whether or not the beam exists at position X. Only works for beams along the x, y, or z axes; arbitrary directions will be supported later. Also assumes that the beam passes through the origin. '''
-        X0 = X-self.origin
-        r = np.linalg.norm(-X0+np.outer(np.dot(X0, self.direction), (self.direction)), axis=1)
+        xp = get_array_module(X)
+        direction = xp.asarray(self.direction)
+        X0 = X - xp.asarray(self.origin)
+        r = xp.linalg.norm(-X0 + xp.outer(xp.dot(X0, direction), direction), axis=1)
         if self.cutoff is None:
             return r < self.radius
         else:
             return (r < self.radius) & (r < self.cutoff)
 
     def intensity(self, X):
+        xp = get_array_module(X)
         if self.infinite:
-            return np.ones(len(X))*self.power/np.pi/self.radius**2
+            return xp.ones(len(X))*self.power/np.pi/self.radius**2
         return self.exists_at(X) * self.power/np.pi/self.radius**2
 
 def between_angles(theta, a, b):
@@ -109,8 +113,10 @@ class PyramidBeam(Beam):
 @attr.s
 class GaussianBeam(Beam):
     def intensity(self, X):
-        X0 = X-self.origin
-        r = np.linalg.norm(-X0+np.outer(np.dot(X0,self.direction),(self.direction)),axis=1)
+        xp = get_array_module(X)
+        direction = xp.asarray(self.direction)
+        X0 = X - xp.asarray(self.origin)
+        r = xp.linalg.norm(-X0 + xp.outer(xp.dot(X0, direction), direction), axis=1)
         w = self.radius
         I = self.power/np.pi/self.radius**2
-        return I*np.exp(-2*r**2/w**2) * (r <= self.cutoff)
+        return I*xp.exp(-2*r**2/w**2) * (r <= self.cutoff)

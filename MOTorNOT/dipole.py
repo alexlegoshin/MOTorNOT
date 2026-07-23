@@ -21,6 +21,7 @@
 import numpy as np
 import attr
 from scipy.constants import c, k as kB, physical_constants
+from MOTorNOT.backend import get_array_module, asnumpy
 amu = physical_constants['atomic mass constant'][0]
 
 
@@ -68,17 +69,19 @@ class DipoleTrap:
     # ----- geometry helpers -----
     def _cylindrical(self, X):
         ''' Returns (longitudinal, radial) coordinates relative to the focus. '''
-        X = np.atleast_2d(X) - self.center
+        xp = get_array_module(X)
+        X = xp.atleast_2d(X) - xp.asarray(self.center)
         longitudinal = X[:, self.axis]
         others = [i for i in range(3) if i != self.axis]
-        radial = np.sqrt(X[:, others[0]]**2 + X[:, others[1]]**2)
+        radial = xp.sqrt(X[:, others[0]]**2 + X[:, others[1]]**2)
         return longitudinal, radial
 
     def intensity(self, X):
         ''' Gaussian-beam intensity (W/m^2) at position(s) X (shape (N,3)). '''
+        xp = get_array_module(X)
         z, r = self._cylindrical(X)
-        w = self.waist * np.sqrt(1 + (z / self.zR)**2)
-        return (2 * self.power / (np.pi * w**2)) * np.exp(-2 * r**2 / w**2)
+        w = self.waist * xp.sqrt(1 + (z / self.zR)**2)
+        return (2 * self.power / (np.pi * w**2)) * xp.exp(-2 * r**2 / w**2)
 
     # ----- potential and forces -----
     def potential(self, X):
@@ -91,17 +94,18 @@ class DipoleTrap:
 
     def depth(self):
         ''' Trap depth |U(focus)| in Joules (positive number). '''
-        return abs(self.potential(self.center.reshape(1, 3))[0])
+        return float(abs(asnumpy(self.potential(self.center.reshape(1, 3)))[0]))
 
     def depth_uK(self):
         return self.depth() / kB * 1e6
 
     def force(self, X, h=1e-9):
         ''' F = -grad U, central finite difference (N,3). '''
-        X = np.atleast_2d(X).astype(float)
-        F = np.zeros(X.shape)
+        xp = get_array_module(X)
+        X = xp.atleast_2d(X).astype(float)
+        F = xp.zeros(X.shape)
         for i in range(3):
-            dX = np.zeros(X.shape)
+            dX = xp.zeros(X.shape)
             dX[:, i] = h
             F[:, i] = -(self.potential(X + dX) - self.potential(X - dX)) / (2 * h)
         return F
@@ -127,11 +131,12 @@ class OpticalLattice(DipoleTrap):
         intensity by 4*cos^2(k z), giving wells spaced by lambda/2. '''
 
     def intensity(self, X):
+        xp = get_array_module(X)
         z, r = self._cylindrical(X)
-        w = self.waist * np.sqrt(1 + (z / self.zR)**2)
-        envelope = (2 * self.power / (np.pi * w**2)) * np.exp(-2 * r**2 / w**2)
+        w = self.waist * xp.sqrt(1 + (z / self.zR)**2)
+        envelope = (2 * self.power / (np.pi * w**2)) * xp.exp(-2 * r**2 / w**2)
         k = 2 * np.pi / self.wavelength
-        return envelope * 4 * np.cos(k * z)**2
+        return envelope * 4 * xp.cos(k * z)**2
 
     def trap_frequencies(self):
         ''' (radial, axial) angular frequencies. Axial confinement is set by the

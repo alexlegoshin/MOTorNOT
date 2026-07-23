@@ -20,10 +20,15 @@ def rotate(axis, theta):
 
     return np.array(mat)
 
+from . import backend
+from .backend import GPU_AVAILABLE, use_gpu, use_cpu, using_gpu, asnumpy, asarray
 from .coils import LinearQuadrupole, QuadrupoleCoils
 from .mot import SixBeam, GratingMOT
 from .beams import UniformBeam, GaussianBeam
 from .dipole import DipoleTrap, OpticalLattice
 from .levels import LevelDynamics
+from .integration import Solver, integrate, generate_initial_conditions
 from . import diagnostics
 from . import recapture
+from .api import (atom, rubidium87, six_beam_mot, dipole_trap, thermal_cloud,
+                  set_backend, Experiment, ATOMS)
